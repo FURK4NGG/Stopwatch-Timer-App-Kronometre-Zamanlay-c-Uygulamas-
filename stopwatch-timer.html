@@ -556,6 +556,7 @@ toggleBtn.addEventListener('click', () => {
         if (remainingSeconds <= 0) {
           clearInterval(timerInterval);
           timerInterval = null;
+          totalSeconds = 0;
           showTimerAlert();
           toggleBtn.classList.remove("pause");
           toggleBtn.classList.add("play");
