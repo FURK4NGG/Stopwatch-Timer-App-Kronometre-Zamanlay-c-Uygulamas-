@@ -2,7 +2,6 @@
 <html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8">
-    <link id="favicon" href="img/icon.ico" rel="shortcut icon" type="image/x-icon">
     <title>Stopwatch Timer App</title>
     <style>
 @font-face{font-family:'JetBrains Mono';src:url('/FONTS/JetBrains.woff2')format('woff2');font-style:normal;}
@@ -368,100 +367,122 @@ input[type="color"] {
 <button class="theme-toggle" id="themeToggle">◐</button>
 <input type="color" id="colorPicker" value="#ffffff">
 <script>
-document.addEventListener("dblclick", function(e) {
-      e.preventDefault();
-    });
+document.addEventListener("dblclick", function (e) {
+  e.preventDefault();
+});
 
-let startTimer,
-  hr = (min = sec = ms = "00");
-const startBtn = document.querySelector(".start"),
-  stopBtn = document.querySelector(".stop"),
-  resetBtn = document.querySelector(".reset"),
-  lapBtn = document.querySelector(".lap"),
-  lapsList = document.querySelector(".laps");
-
-let lapCount = 0; // global değişken
-let lastLapTime = ""; // son eklenen lap zamanı
+let startTimer,isRunner;
+let startTime = null;
+let elapsedTime = 0;
 
 const body = document.body;
 const themeToggle = document.getElementById('themeToggle');
 let clicked = false;
 let lightMode = false;
 
+const startBtn = document.querySelector(".start"),
+  stopBtn = document.querySelector(".stop"),
+  resetBtn = document.querySelector(".reset"),
+  lapBtn = document.querySelector(".lap"),
+  lapsList = document.querySelector(".laps");
+
+let lapCount = 0; 
+let lastLapTime = "";
+
 function start() {
+  if (!startTime) {
+    startTime = Date.now() - elapsedTime; // kaldığı yerden devam et
+  }
   startBtn.classList.add("active");
   stopBtn.classList.remove("stopActive");
+  isRunner=true;
+
   startTimer = setInterval(() => {
-    ms++;
-    ms = ms < 10 ? "0" + ms : ms;
-    if (ms == 100) {
-      sec++;
-      sec = sec < 10 ? "0" + sec : sec;
-      ms = "00";
-    }
-    if (sec == 60) {
-      min++;
-      min = min < 10 ? "0" + min : min;
-      sec = "00";
-    }
-    if (min == 60) {
-      hr++;
-      hr = hr < 10 ? "0" + hr : hr;
-      min = "00";
-    }
-    putValue();
+    elapsedTime = Date.now() - startTime;
+    updateTime(elapsedTime);
   }, 10);
 }
 
 function stop() {
   startBtn.classList.remove("active");
   stopBtn.classList.add("stopActive");
+  isRunner=false;
   clearInterval(startTimer);
 }
 
 function reset() {
   startBtn.classList.remove("active");
   stopBtn.classList.remove("stopActive");
+  isRunner=false;
   clearInterval(startTimer);
-  hr = min = sec = ms = "00";
+  startTime = null;
+  elapsedTime = 0;
   lastLapTime = "";
   lapsList.innerHTML = "";
   lapCount = 0;
-  putValue();
+  localStorage.removeItem("laps");
+  updateTime(0);
 }
 
 function lap() {
+  if (elapsedTime === 0) return;
 
-  if (hr === "00" && min === "00" && sec === "00" && ms === "00") return;
+  const currentTime = formatTime(elapsedTime);
 
-  const currentTime = `${hr}:${min}:${sec}:${ms}`;
-
-  // Son lap ile aynıysa ekleme
   if (currentTime === lastLapTime) return;
 
-  lapCount++; // her yeni lap için sayacı artır
+  lapCount++;
   const li = document.createElement("li");
   li.textContent = `Lap ${lapCount}: ${currentTime}`;
   lapsList.appendChild(li);
   lastLapTime = currentTime;
 
-  // DOM güncellendikten sonra en alta kaydır
+  // laps kaydet
+  let laps = JSON.parse(localStorage.getItem("laps")) || [];
+  laps.push({ lap: lapCount, time: currentTime });
+  localStorage.setItem("laps", JSON.stringify(laps));
+
   setTimeout(() => {
     lapsList.scrollTop = lapsList.scrollHeight;
   }, 0);
 }
 
-function putValue() {
-  document.querySelector(".millisecond").innerText = ms;
-  document.querySelector(".second").innerText = sec;
-  document.querySelector(".minute").innerText = min;
+function updateTime(msTotal) {
+  let hr = Math.floor(msTotal / 3600000);
+  let min = Math.floor((msTotal % 3600000) / 60000);
+  let sec = Math.floor((msTotal % 60000) / 1000);
+  let ms = Math.floor((msTotal % 1000) / 10);
+
+  hr = hr < 10 ? "0" + hr : hr;
+  min = min < 10 ? "0" + min : min;
+  sec = sec < 10 ? "0" + sec : sec;
+  ms = ms < 10 ? "0" + ms : ms;
+
   document.querySelector(".hour").innerText = hr;
+  document.querySelector(".minute").innerText = min;
+  document.querySelector(".second").innerText = sec;
+  document.querySelector(".millisecond").innerText = ms;
+}
+
+function formatTime(msTotal) {
+  let hr = Math.floor(msTotal / 3600000);
+  let min = Math.floor((msTotal % 3600000) / 60000);
+  let sec = Math.floor((msTotal % 60000) / 1000);
+  let ms = Math.floor((msTotal % 1000) / 10);
+
+  hr = hr < 10 ? "0" + hr : hr;
+  min = min < 10 ? "0" + min : min;
+  sec = sec < 10 ? "0" + sec : sec;
+  ms = ms < 10 ? "0" + ms : ms;
+
+  return `${hr}:${min}:${sec}:${ms}`;
 }
 
 startBtn.addEventListener("click", start);
 stopBtn.addEventListener("click", stop);
 resetBtn.addEventListener("click", reset);
 lapBtn.addEventListener("click", lap);
+
 
  // === CIRCLE SETUP ===
 const progressBar = document.querySelector('.e-c-progress');
@@ -737,4 +758,59 @@ function updateVisibility(index) {
     item2.style.color = "var(--dark)";
   }
 }
-</script></body></html>
+
+
+// Sayfa açıldığında cache'deki veriyi geri yükle
+  window.addEventListener("load", () => {
+  const savedTime = localStorage.getItem("elapsedTime");
+  const wasRunning1 = localStorage.getItem("isRunning1") === "true";
+  
+
+  if (savedTime) {
+    elapsedTime = parseInt(savedTime);
+    updateTime(elapsedTime);
+  }
+
+  if (wasRunning1) {start();}else{stop();}
+
+  const savedLaps = JSON.parse(localStorage.getItem("laps")) || [];
+  lapCount = savedLaps.length;
+  savedLaps.forEach(l => {
+    const li = document.createElement("li");
+    li.textContent = `Lap ${l.lap}: ${l.time}`;
+    lapsList.appendChild(li);
+    lastLapTime = l.time;
+  });
+
+
+  const wasRunning2 = localStorage.getItem("isRunning2") === "true";
+  const total = localStorage.getItem("totalSeconds");
+  const remaining = localStorage.getItem("remainingSeconds");
+
+  if (remaining) {
+      totalSeconds = total;
+      remainingSeconds = remaining;
+      updateDisplay();
+    }else{
+      totalSeconds = 0;
+      remainingSeconds = 0;
+    }
+  if (wasRunning2) {isRunning = false;toggleBtn.click();}
+});
+
+// Çıkış uyarısı göster
+    window.addEventListener("beforeunload", function (event) {
+      // Uyarı tetikle
+      event.preventDefault();
+      event.returnValue = ""; 
+    });
+
+    // Kullanıcı gerçekten ayrılınca veriyi kaydet
+    window.addEventListener("unload", function () {
+      localStorage.setItem("elapsedTime", elapsedTime);
+      localStorage.setItem("isRunning1", isRunner ? "true" : "false");
+
+      localStorage.setItem("totalSeconds", totalSeconds);
+      localStorage.setItem("remainingSeconds", remainingSeconds);
+      localStorage.setItem("isRunning2", isRunning ? "true" : "false");
+    });</script></body></html>
